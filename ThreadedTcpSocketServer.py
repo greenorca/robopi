@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import socket, socketserver
 import os, sys, time, threading, re
 from base64 import b64encode
