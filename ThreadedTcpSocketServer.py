@@ -28,7 +28,9 @@ class ThreadedTCPHandler(socketserver.BaseRequestHandler):
         self.display.setLine1('Con: '+str(self.client_address[0]))
         self.car = Car()
         # expect messages like 'l65;r63;' 'l-345;r-23;'
-        self.pattern = re.compile(r"L(-*\d+);R(-*\d+);")
+        self.wheel_pattern = re.compile(r"L(-*\d+);R(-*\d+);")
+        #first decimal for clockwise/counterclockwise turns, second decimal for head up/down
+        self.head_pattern = re.compile(r"H:(-*\d+);(-*\d+);") 
 
     def handle(self):
         imUp = True
@@ -50,7 +52,7 @@ class ThreadedTCPHandler(socketserver.BaseRequestHandler):
                 else:
                     #self.request.send(data.upper())
                     self.display.setLine2("RAW:" +data.upper())
-                    match = re.match(self.pattern, data)
+                    match = re.match(self.wheel_pattern, data) #here's for the wheels
                     if match:
                         leftSpeed = int(match.group(1))
                         rightSpeed = int(match.group(2))
@@ -58,8 +60,16 @@ class ThreadedTCPHandler(socketserver.BaseRequestHandler):
                         print('Moving: '+str(leftSpeed)+', '+str(rightSpeed))
                         self.display.setLine3("L:"+str(leftSpeed)+" R:"+str(rightSpeed))
                     else:
-                        print('Pattern mismatch')
-                        self.display.setLine3("Pattern mismatch")
+                        match = re.match(self.head_pattern, data)
+                        if match:
+                            headTurns = int(match.group(1))
+                            headUpDown = int(match.group(2))
+                            self.car.moveHead(headTurns)
+                            print('Moving head: '+str(headTurns)+', Up/Down:'+str(headUpDown))
+                            #self.display.setLine3("L:"+str(leftSpeed)+" R:"+str(rightSpeed))
+                        else:
+                            print('Pattern mismatch')
+                            self.display.setLine3("Pattern mismatch")
 
                 self.request.sendall(bytes('ACK\n','utf-8'))
 
