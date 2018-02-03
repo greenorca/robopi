@@ -18,10 +18,14 @@ class Car:
     display = None
     maxSpeed = 100
 
+    distance_FL = 0
+    distance_FR = 0
+    dist_err = 10
+
     head = None
 
-    leftSpeed = 0;
-    rightSpeed = 0;
+    leftSpeed = 0
+    rightSpeed = 0
 
     # emergency brake: timed thread that automatically stops car after a while
     __timeout = 0.4
@@ -39,13 +43,16 @@ class Car:
             self.rightWheel = Engine_PCA(int(config['robopi']['right_wheel_fwd']),int(config['robopi']['right_wheel_rwd']))
             self.__ebrake = Timer(self.__timeout, self.stop)
 
-            self.distance_front_left = UltraSonicDistanceSensor(
+            self.distance_sensor_front_left = UltraSonicDistanceSensor(
                 int(config['robopi']['usd__front_left_trigger']),
                 int(config['robopi']['usd__front_left_echo']))
 
-            self.distance_front_right = UltraSonicDistanceSensor(
+            self.distance_sensor_front_right = UltraSonicDistanceSensor(
                 int(config['robopi']['usd__front_right_trigger']),
                 int(config['robopi']['usd__front_right_echo']))
+
+            self.distance_FR = self.distance_sensor_front_right.getDistance()
+            self.distance_FL = self.distance_sensor_front_left.getDistance()
 
             self.head = Stepper_PCA9685(freq = 1000, MAX = 4095, channel=[4,5,6,7])
             
@@ -54,11 +61,19 @@ class Car:
             raise e
 
 
+    '''
+    keep track of current distances (front left and right)
+    stop engine of distance too short
+    '''
     def __observeDistance(self):
+
         if self.leftSpeed == 0 and self.rightSpeed == 0:
             return
 
-        if self.distance_front_right.getDistance() < 15 and self.leftSpeed > 0  or self.distance_front_left.getDistance() < 15 and self.rightSpeed > 0:
+        self.distance_FR = self.distance_sensor_front_right.getDistance()
+        self.distance_FL = self.distance_sensor_front_left.getDistance()
+
+        if self.distance_FR < self.dist_err and self.leftSpeed > 0  or self.distance_FL < self.dist_err and self.rightSpeed > 0:
             print("limit reached...")
             self.stop()
             return;
@@ -66,6 +81,10 @@ class Car:
         self.__eDist = Timer(self.__distanceInterval,self.__observeDistance)
         self.__eDist.start()
 
+    '''
+    moves "head", use positive values to turn clockwise, negative values to turn counterclockwise
+
+    '''
     def moveHead(self, steps=10):
         if steps > 0:
             self.head.stepClockwise(min(steps,200))
@@ -73,7 +92,9 @@ class Car:
             self.head.stepCounterClockwise(min(abs(steps),200))
         
 
-
+    '''
+    moves the car wheels on both sides, negative values to turn car back
+    '''
     def moveCar(self, leftSpeed=0, rightSpeed=0):
         try:
             self.__eBrake.cancel()
@@ -81,11 +102,13 @@ class Car:
         except:
             pass
         
-        self.leftWheel.move(leftSpeed)
-        self.rightWheel.move(rightSpeed)
+        if (leftSpeed > 0 and self.distance_FR > self.dist_err) or leftSpeed <= 0:
+            self.leftWheel.move(leftSpeed)
+            self.leftSpeed = leftSpeed
 
-        self.leftSpeed = leftSpeed
-        self.rightSpeed = rightSpeed
+        if (rightSpeed > 0 and self.distance_FL > self.dist_err) or rightSpeed <= 0:
+            self.rightWheel.move(rightSpeed)
+            self.rightSpeed = rightSpeed
 
         self.__eDist = Timer(self.__distanceInterval,self.__observeDistance)
         self.__eDist.start()
@@ -94,6 +117,9 @@ class Car:
         self.__eBrake = Timer(self.__timeout,self.stop)
         self.__eBrake.start()
 
+    '''
+    stop car
+    '''
     def stop(self):
         print("reseting wheel speed")
         self.leftWheel.move(0)

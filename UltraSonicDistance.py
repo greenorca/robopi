@@ -29,7 +29,7 @@ class UltraSonicDistanceSensor:
     def getDistance(self):
         distance = -1
         while distance > 2000 or distance == -1:
-            time.sleep(0.1)
+            #time.sleep(0.05)
             IO.output(self.pinLed, True)
             t0 = 0
             t1 = 0
@@ -44,10 +44,7 @@ class UltraSonicDistanceSensor:
                 t1 = time.time()
 
             distance = (t1 - t0) * 17150
-
-        IO.output(self.pinLed, False)
         return round(distance,2)
-        pass
 
 
 if __name__ == "__main__":
@@ -57,6 +54,10 @@ if __name__ == "__main__":
     i=0
     while i < 100:
         i=i+1
-        print("right: "+str(usd1.getDistance()))
-        print("left:  "+str(usd2.getDistance()))
-        time.sleep(0.2)
+        t0 = time.time()
+        rightDist = str(usd1.getDistance())
+        t1 = time.time()
+        leftDist = str(usd2.getDistance())
+        t2 = time.time()
+        print("left: "+ leftDist + ", right: "+ rightDist + ", time:  "+str(t2 - t0)+" sec")
+        time.sleep(0.05)
