@@ -1,0 +1,23 @@
+#auto lo
+iface lo inet loopback
+
+auto eth0
+allow-hotplug eth0
+#iface eth0 inet manual
+iface eth0 inet static
+address 192.168.0.30
+netmask 255.255.255.0
+gateway 192.168.0.1
+
+#auto wlan0
+allow-hotplug wlan0
+#iface wlan0 inet manual
+#wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf
+
+iface wlan0 inet static
+address 192.168.43.1
+netmask 255.255.255.0
+network 192.168.43.0
+broadcast 192.168.43.255
+post-up service hostapd restart
+post-up service isc-dhcp-server restart
