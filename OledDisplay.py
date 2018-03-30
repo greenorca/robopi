@@ -1,4 +1,4 @@
-#!/usr/local/bin/python
+#!/usr/local/bin/python3
 # -*- coding: utf-8 -*-
 
 import os, sys, time, threading
@@ -9,16 +9,26 @@ from PIL import Image, ImageDraw, ImageFont
 
 from threading import Timer, Thread
 
+'''
+OledDisplay handles external calls for 128x64px Oled displays,
+PIN24 is reset pin
+can be called my command line to display parameters (one per line, max three lines)
+make sure to use it with root credentials
+
+setting one new line will redraw entire display (with the previous values for the other two lines)
+
+'''
 class OledDisplay:
 
     line1 = 'Line 1'
     line2 = 'Line 2'
-    line3 = 'Line 3'
+    line3 = ''
     syncThread = None
+    drawLines = False;
 
-    def __init__(self):
+    def __init__(self, drawLines=False):
         RST = 24
-
+        self.drawLines = drawLines;
         # Display 128x64 display with hardware I2C:
         self.disp = Adafruit_SSD1306.SSD1306_128_64(rst=RST)
 
@@ -67,15 +77,19 @@ class OledDisplay:
 
 
     def __showMessage(self):
-        self.draw.rectangle((0,0,self.width,self.height), outline=0, fill=0)
+        self.draw.rectangle((0,0,self.width-1,self.height-1), outline=1, fill=0)
         # Write one line of text.
-        self.draw.line((self.x, self.top+14, self.x+self.width, self.top+14), fill=255)
+        if self.drawLines:
+            self.draw.line((self.x, self.top+14, self.x+self.width, self.top+14), fill=255)
         self.draw.text((self.x, self.top+15), str(self.line1), font=self.font_b, fill=255)
-        self.draw.line((self.x, self.top+30, self.x+self.width, self.top+30), fill=255)
+        if self.drawLines:
+            self.draw.line((self.x, self.top+30, self.x+self.width, self.top+30), fill=255)
         self.draw.text((self.x, self.top+30), str(self.line2), font=self.font_b, fill=255)
-        self.draw.line((self.x, self.top+45, self.x+self.width, self.top+45), fill=255)
+        if self.drawLines:    
+            self.draw.line((self.x, self.top+45, self.x+self.width, self.top+45), fill=255)
         self.draw.text((self.x, self.top+45), str(self.line3), font=self.font_b, fill=255)
-        self.draw.line((self.x, self.top+60, self.x+self.width, self.top+60), fill=255)
+        if self.drawLines:
+            self.draw.line((self.x, self.top+60, self.x+self.width, self.top+60), fill=255)
 
         # Display image.
         self.disp.image(self.image)
@@ -110,10 +124,20 @@ class OledDisplay:
         self.syncThread.start()
 
 if __name__ == "__main__":
-    oled = OledDisplay()
-    time.sleep(1)
-    time.sleep(1)
-    oled.setLine1('Huhu, ich bins')
-    oled.setLine2('Huhu, ich bin Zeile2')
-    time.sleep(0.2)
-    oled.setLine3('Huhu, ich bin Zeile3')
+    oled = OledDisplay(False)
+    time.sleep(2)
+    if len(sys.argv)==1:
+        oled.setLine1('Huhu, ich bins')
+        time.sleep(0.2)
+        oled.setLine2('Huhu, ich bin Zeile2')
+        time.sleep(0.2)
+        oled.setLine3('Huhu, ich bin Zeile3')
+    else:
+        for i,s in enumerate(sys.argv[1:]):
+            if i%3 == 0:
+                oled.setLine1(s)            
+            if i%3 == 1:
+                oled.setLine2(s)            
+            if i%3 == 2:
+                oled.setLine3(s)
+                time.sleep(2)

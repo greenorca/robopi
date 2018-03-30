@@ -87,6 +87,9 @@ class ThreadedTCPServer(socketserver.ThreadingTCPServer,socketserver.TCPServer):
         
 if __name__ == "__main__":
     HOST, PORT = "192.168.43.1", 8888
+    oled = OledDisplay(False)
+    oled.setLine1("Starting RoboPi")
+    oled.setLine2("IP: "+HOST)
 
     # Create the server, binding to localhost on port 9999
     server = ThreadedTCPServer((HOST, PORT), ThreadedTCPHandler)
@@ -109,6 +112,8 @@ if __name__ == "__main__":
     try:    
         server.serve_forever()
     except:
+        oled.setLine1("Autsch...")
+        oled.setLine2("X~X")
         pass
     finally:
         print("dying gracefully")
