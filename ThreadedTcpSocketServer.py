@@ -86,7 +86,7 @@ class ThreadedTCPServer(socketserver.ThreadingTCPServer,socketserver.TCPServer):
         self.allow_reuse_address = True
         
 if __name__ == "__main__":
-    HOST, PORT = "192.168.0.30", 8888
+    HOST, PORT = "192.168.43.1", 8888
 
     # Create the server, binding to localhost on port 9999
     server = ThreadedTCPServer((HOST, PORT), ThreadedTCPHandler)
