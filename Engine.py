@@ -31,7 +31,6 @@ class Engine:
         IO.setup(self.pin1,IO.OUT)
         self.pin2 = pin2
         IO.setup(self.pin2,IO.OUT)
-        
         self.engineFwd = IO.PWM(self.pin1 , self.freq)
         self.engineFwd.start(0)
         self.engineRwd = IO.PWM(self.pin2 , self.freq)
@@ -62,11 +61,12 @@ class Engine:
 if __name__ == "__main__":
 
     speed = 80
-
+    print("creating engines...")
     #engineLeft = Engine(19,16)
     e1 = Engine(19,16)
     e2 = Engine(20,26)
-    # fwd    
+    # fwd
+    print("starting engines... fwd")
     e1.move(speed)
     e2.move(speed)
     time.sleep(0.5)
@@ -74,10 +74,13 @@ if __name__ == "__main__":
     e2.move(0)
     time.sleep(1)
     # rwd
+    print("starting engines... rwd")
     e1.move(-speed)
     e2.move(-speed)
     time.sleep(0.5)
     # quit
+    print("stoping engines...")
+    
     e1.move(0)
     e2.move(0)
     time.sleep(1)
@@ -89,6 +92,7 @@ if __name__ == "__main__":
     e1.move(0)
     e2.move(0)
     time.sleep(1)
+    print("demo finished...")
     
     
 

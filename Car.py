@@ -5,14 +5,17 @@ from Engine_PCA import Engine_PCA
 from OledDisplay import OledDisplay
 from UltraSonicDistance import UltraSonicDistanceSensor
 from PCA_9685_Stepper import Stepper_PCA9685
+import threading, time
 from threading import Timer
-import os
+from queue import Queue
+import os, re
 import configparser
 '''
 car contains leftWheel and rightWheel, both instances of PWM controlled Engine client_address
 both wheels will be stopped 1 second after a moveCar command was issued
 '''
-class Car:
+class Car(threading.Thread):
+
     leftWheel = None
     rightWheel = None
     display = None
@@ -33,8 +36,43 @@ class Car:
     __distanceInterval = 0.1
     __eDist = None
 
-    def __init__(self):
+    # expect messages like 'l65;r63;' 'l-345;r-23;'
+    wheel_pattern = re.compile(r"L(-*\d+);R(-*\d+);")
+    #first decimal for clockwise/counterclockwise turns, second decimal for head up/down
+    head_pattern = re.compile(r"H:(-*\d+);(-*\d+);")
+
+
+    def run(self):
+        data=""
+        while (data!="xxx"):
+            if (not(self.queue.empty())):
+                data = self.queue.get()
+                match = re.match(self.wheel_pattern, data) #here's for the wheels
+                if match:
+                    leftSpeed = int(match.group(1))
+                    rightSpeed = int(match.group(2))
+                    self.moveCar(leftSpeed, rightSpeed)
+                    print('Moving: '+str(leftSpeed)+', '+str(rightSpeed))
+                    #self.display.setLine3("L:"+str(leftSpeed)+" R:"+str(rightSpeed))
+                else:
+                    match = re.match(self.head_pattern, data)
+                    if match:
+                        headTurns = int(match.group(1))
+                        headUpDown = int(match.group(2))
+                        self.moveHead(headTurns)
+                        print('Moving head: '+str(headTurns)+', Up/Down:'+str(headUpDown))
+                        #self.display.setLine3("L:"+str(leftSpeed)+" R:"+str(rightSpeed))
+                    else:
+                        print('Pattern mismatch')
+                        #self.display.setLine3("Pattern mismatch")
+
+            time.sleep(0.1)
+
+
+    def __init__(self, queue):
+        super(Car,self).__init__()
         try:
+            self.queue = queue
             config = configparser.ConfigParser()
             mypath = os.path.dirname(os.path.realpath(__file__))+'/robopi_PCA.conf'
             print('debug Car(): '+ mypath)
@@ -55,7 +93,7 @@ class Car:
             self.distance_FL = self.distance_sensor_front_left.getDistance()
 
             self.head = Stepper_PCA9685(freq = 1000, MAX = 4095, channel=[4,5,6,7])
-            
+
 
         except Exception as e:
             raise e
@@ -90,7 +128,7 @@ class Car:
             self.head.stepClockwise(min(steps,200))
         else:
             self.head.stepCounterClockwise(min(abs(steps),200))
-        
+
 
     '''
     moves the car wheels on both sides, negative values to turn car back
@@ -101,7 +139,7 @@ class Car:
             self.__eDist.cancel()
         except:
             pass
-        
+
         if (leftSpeed > 0 and self.distance_FR > self.dist_err) or leftSpeed <= 0:
             self.leftWheel.move(leftSpeed)
             self.leftSpeed = leftSpeed
@@ -113,7 +151,7 @@ class Car:
         self.__eDist = Timer(self.__distanceInterval,self.__observeDistance)
         self.__eDist.start()
 
-        #setup timer 
+        #setup timer
         self.__eBrake = Timer(self.__timeout,self.stop)
         self.__eBrake.start()
 
@@ -134,4 +172,7 @@ class Car:
 
 
 if __name__=="__main__":
-    car = Car()
+
+    q = Queue(1)
+    car = Car(q)
+    car.start()

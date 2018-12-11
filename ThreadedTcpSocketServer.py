@@ -1,17 +1,21 @@
 #!/usr/bin/python3
 
-import socket, socketserver
-import os, sys, time, threading, re
-from base64 import b64encode
+import socketserver
+import sys
+#from base64 import b64encode
 from OledDisplay import OledDisplay
-from Car import Car
-from threading import Timer, Thread
 import RPi.GPIO as IO
+from Car import Car
 '''
 threaded socket server, each connection gets its own ThreadedTCPHandler instance
 for Python2.7, use socketserver
 for Python3.x, use socketserver
 '''
+
+from queue import Queue;
+
+queue = Queue(1)
+
 class ThreadedTCPHandler(socketserver.BaseRequestHandler):
     """
     The RequestHandler class for our server.
@@ -26,11 +30,7 @@ class ThreadedTCPHandler(socketserver.BaseRequestHandler):
         print('setting up the request handler for client '+self.client_address[0])
         self.display = OledDisplay()
         self.display.setLine1('Con: '+str(self.client_address[0]))
-        self.car = Car()
-        # expect messages like 'l65;r63;' 'l-345;r-23;'
-        self.wheel_pattern = re.compile(r"L(-*\d+);R(-*\d+);")
-        #first decimal for clockwise/counterclockwise turns, second decimal for head up/down
-        self.head_pattern = re.compile(r"H:(-*\d+);(-*\d+);") 
+
 
     def handle(self):
         imUp = True
@@ -48,28 +48,13 @@ class ThreadedTCPHandler(socketserver.BaseRequestHandler):
                     self.display.setLine2("disconnected")
                     self.display.setLine3("")
 
-                # just send back the same data, but upper-cased
+                # just put data in queue
                 else:
-                    #self.request.send(data.upper())
-                    self.display.setLine2("RAW:" +data.upper())
-                    match = re.match(self.wheel_pattern, data) #here's for the wheels
-                    if match:
-                        leftSpeed = int(match.group(1))
-                        rightSpeed = int(match.group(2))
-                        self.car.moveCar(leftSpeed, rightSpeed)
-                        print('Moving: '+str(leftSpeed)+', '+str(rightSpeed))
-                        self.display.setLine3("L:"+str(leftSpeed)+" R:"+str(rightSpeed))
+                    if not(queue.full()):
+                        queue.put(data)
+                        self.display.setLine2("RAW:" +data.upper())
                     else:
-                        match = re.match(self.head_pattern, data)
-                        if match:
-                            headTurns = int(match.group(1))
-                            headUpDown = int(match.group(2))
-                            self.car.moveHead(headTurns)
-                            print('Moving head: '+str(headTurns)+', Up/Down:'+str(headUpDown))
-                            #self.display.setLine3("L:"+str(leftSpeed)+" R:"+str(rightSpeed))
-                        else:
-                            print('Pattern mismatch')
-                            self.display.setLine3("Pattern mismatch")
+                        pass # i don't care
 
                 self.request.sendall(bytes('ACK\n','utf-8'))
 
@@ -78,15 +63,16 @@ class ThreadedTCPHandler(socketserver.BaseRequestHandler):
             f = tb.tb_frame
             lineno = tb.tb_lineno
             print("connection terminated: "+str(ex)+" @ line "+str(lineno))
-            
+
 class ThreadedTCPServer(socketserver.ThreadingTCPServer,socketserver.TCPServer):
     pass
     def __init__(self, address_config, handler):
         socketserver.ThreadingTCPServer.__init__(self, address_config, handler)
         self.allow_reuse_address = True
-        
+
 if __name__ == "__main__":
     HOST, PORT = "192.168.43.1", 8888
+    HOST, PORT = "192.168.0.61", 8888
     oled = OledDisplay(False)
     oled.setLine1("Starting RoboPi")
     oled.setLine2("IP: "+HOST)
@@ -94,7 +80,7 @@ if __name__ == "__main__":
     # Create the server, binding to localhost on port 9999
     server = ThreadedTCPServer((HOST, PORT), ThreadedTCPHandler)
     ip, port = server.server_address
-
+    car = Car(queue)
     # Start a thread with the server -- that thread will then start one
     # more thread for each request
     #server_thread = threading.Thread(target=server.serve_forever)
@@ -108,13 +94,14 @@ if __name__ == "__main__":
     ledPin = 21
     IO.setup(ledPin,IO.OUT)
     IO.output(ledPin,IO.HIGH)
-    
-    try:    
+
+    try:
+        car.start()
         server.serve_forever()
-    except:
+    except Exception as ex:
         oled.setLine1("Autsch...")
         oled.setLine2("X~X")
-        pass
+        print(ex)
     finally:
         print("dying gracefully")
         IO.output(ledPin,IO.LOW)

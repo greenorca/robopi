@@ -1,7 +1,11 @@
 import RPi.GPIO as IO
-from threading import Thread
+#from threading import Thread
 import time
 
+'''
+class to handle an ultrasonic distance sensor
+see __main__ for a demonstration
+'''
 class UltraSonicDistanceSensor:
 
     pinTrigger = None
@@ -48,6 +52,7 @@ class UltraSonicDistanceSensor:
 
 
 if __name__ == "__main__":
+    # pin numbers based on RoboPi configuration
     usd1 = UltraSonicDistanceSensor(17,18)
     usd2 = UltraSonicDistanceSensor(22,23)
 
